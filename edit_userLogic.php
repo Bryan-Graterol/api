@@ -25,7 +25,7 @@ function getUserData($api_key, $id) {
 }
 
 // Función para actualizar los datos del usuario
-function updateUserData($api_key, $id, $username, $password, $max_connections, $contact,$reseller_notes) {
+function updateUserData($api_key, $id, $username, $password, $max_connections, $contact, $reseller_notes, $bouquet) {
     $url = 'http://172.16.18.20/APIsomos/?api_key=' . $api_key . '&action=edit_line&id=' . $id;
     // Datos a enviar en la solicitud POST
     $data = array(
@@ -34,7 +34,7 @@ function updateUserData($api_key, $id, $username, $password, $max_connections, $
         'max_connections' => $max_connections,
         'reseller_notes' => $reseller_notes,
         'contact' => $contact,
-        'bouquets_selected' => array("1", "2", "3"), // Ajusta según tus necesidades
+        'bouquets_selected' => $bouquet,
         'access_output' => array("1", "2", "3") // Ajusta según tus necesidades
     );
     // Inicializar cURL
@@ -56,6 +56,9 @@ function updateUserData($api_key, $id, $username, $password, $max_connections, $
     return $response;
 }
 
+// Lógica para editar el usuario
+$id = isset($_GET['id']) ? $_GET['id'] : null;
+
 $id = isset($_GET['id']) ? $_GET['id'] : null;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -67,17 +70,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $contact = $_POST['contact'];
         $reseller_notes = $_POST['reseller_notes'];
 
+        // Verificar si se seleccionó una opción de bouquet
+        $bouquet = isset($_POST['bouquets_selected']) ? '[' . $_POST['bouquets_selected'] . ']' : '';
+
         // Actualizar los datos del usuario
-        $response = updateUserData($api_key, $id, $username, $password, $max_connections, $contact, $reseller_notes);
+        $response = updateUserData($api_key, $id, $username, $password, $max_connections, $contact, $reseller_notes, $bouquet);
 
         // Verificar la respuesta de la API
         $data = json_decode($response, true);
         if ($data && $data['status'] === 'STATUS_SUCCESS') {
-            // Mensaje de edición completa
-            $success_message = "Usuario editado exitosamente.";
+            // Editado correctamente
+            header("Location:./search_idviews.php?success=true"); // Redirige al usuario a search_id_views.php con éxito
+            exit(); // Asegura que el script termine aquí
         } else {
-            // Mensaje de edición errónea
-            $error_message = 'Error: La solicitud no fue exitosa.';
+            // Error al editar
+            header("Location:./search_idviews.php?success=false"); // Redirige al usuario a search_id_views.php con error
+            exit(); // Asegura que el script termine aquí
         }
     } else {
         $error_message = "Error: No se proporcionó un ID de usuario.";
@@ -89,9 +97,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($user && $user['status'] === 'STATUS_SUCCESS') {
         $username = isset($user['data']['username']) ? $user['data']['username'] : '';
         $password = isset($user['data']['password']) ? $user['data']['password'] : '';
-        $max_connections = isset($user['data']['max_connections']) ? $user['data']['max_connections'] : '';
+        $max_connections = isset($user['data']['max_connections']) ? $user['data']['max_connections'] : '5'; // Definir un valor por defecto
         $reseller_notes = isset($user['data']['reseller_notes']) ? $user['data']['reseller_notes'] : '';
         $contact = isset($user['data']['contact']) ? $user['data']['contact'] : '';
+        // Eliminar corchetes y espacios en blanco del valor de bouquet
+        $bouquet = isset($user['data']['bouquet']) ? trim($user['data']['bouquet'], "[]") : '';
     } else {
         $error_message = 'Error: No se pudo obtener la información del usuario.';
     }
@@ -116,9 +126,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <?php echo $error_message; ?>
             </div>
         <?php endif; ?>
-        <?php if (!empty($success_message)) : ?>
+        <?php if (!empty($mensaje_edicion_exitosa)) : ?>
             <div class="alert alert-success" role="alert">
-                <?php echo $success_message; ?>
+                <?php echo $mensaje_edicion_exitosa; ?>
             </div>
         <?php endif; ?>
         <?php if ($id && empty($error_message)) : ?>
@@ -131,10 +141,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="mb-3">
                     <label for="password" class="form-label">Password:</label>
                     <input type="text" class="form-control" id="password" name="password" value="<?php echo $password; ?>" required>
+                    <?php echo "<h6>En la password debe ir la cedula</h6>" ?>
                 </div>
                 <div class="mb-3">
-                    <label for="max_connections" class="form-label">Max Connections:</label>
-                    <input type="text" class="form-control" id="max_connections" name="max_connections" value="<?php echo $max_connections; ?>" required>
+                    <!--<label for="max_connections" class="form-label">Max Connections:</label>-->
+                    <input type="hidden" id="max_connections" name="max_connections" value="<?php echo $max_connections; ?>">
                 </div>
                 <div class="mb-3">
                     <label for="reseller_notes" class="form-label">Reseller_notes:</label>
@@ -143,6 +154,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="mb-3">
                     <label for="contact" class="form-label">Contact:</label>
                     <input type="text" class="form-control" id="contact" name="contact" value="<?php echo $contact; ?>" required>
+                </div>
+                <div class="mb-3">
+                    <label for="bouquet" class="form-label">Bouquet:</label><br>
+                    <input type="radio" id="parrilla_completa" name="bouquets_selected" value="1" <?php echo ($bouquet == '1') ? 'checked' : ''; ?>>
+                    <label for="parrilla_completa">Parrilla completa</label><br>
+                    <input type="radio" id="solo_nacionales" name="bouquets_selected" value="2" <?php echo ($bouquet == '2') ? 'checked' : ''; ?>>
+                    <label for="solo_nacionales">Solo nacionales</label><br>
                 </div>
                 <button type="submit" class="btn btn-primary">Editar Usuario</button>
             </form>

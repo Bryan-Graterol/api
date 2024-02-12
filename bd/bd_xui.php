@@ -1,5 +1,4 @@
 <?php
-
 // conexionBD.php
 
 /*
@@ -9,18 +8,19 @@ $password = "S0m0s2023*-";
 $database = "testradius";
 */
 
-$host = "10.0.2.4";
-$user = "root2";
+$host = "172.16.18.20";
+$user = "front";
 $password = "S0m0s2023*-";
-$database = "testradius";
+$database = "xui";
 
 
 $conexion = mysqli_connect($host, $user, $password, $database);
 
 if (!$conexion) {
-    die("Error de conexión: " . mysqli_connect_error());
-    echo"Error de conexion";
-
+    echo "error";
+    exit;
+}else {
+    echo "yes";
+    mysqli_close($conexion);
 }
 
-?>

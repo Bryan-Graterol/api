@@ -2,65 +2,7 @@
 // API key
 $api_key = "C46B07DD21675C0AAC4FEFE100F49168";
 
-// Función para obtener datos del usuario
-function getLine($api_key, $id) {
-    $url = 'http://172.16.18.20/APIsomos/?api_key=' . $api_key . '&action=get_line&id=' . $id;
-    return makeRequest($url);
-}
-
-// Función para eliminar una línea
-function deleteLine($api_key, $id) {
-    $url = 'http://172.16.18.20/APIsomos/?api_key=' . $api_key . '&action=delete_line&id=' . $id;
-    return makeRequest($url);
-}
-
-// Verifica si se ha enviado un formulario POST
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['id_value'])) {
-    // Captura el valor del ID
-    $id_value = $_POST['id_value'];
-
-    // Ejecuta la función para obtener datos del usuario
-    $response = getLine($api_key, $id_value);
-
-    // Verifica si la respuesta es válida
-    if ($response !== false) {
-        // Decodifica la respuesta JSON
-        $data = json_decode($response, true);
-
-        // Verifica si la solicitud fue exitosa
-        if ($data['status'] === 'STATUS_SUCCESS') {
-            // Extrae los datos necesarios
-            $user_data = $data['data'];
-
-            // Verifica si cada campo tiene datos o no
-            $id = isset($user_data['id']) ? htmlspecialchars($user_data['id']) : "No hay datos";
-            $username = isset($user_data['username']) ? htmlspecialchars($user_data['username']) : "No hay datos";
-            $password = isset($user_data['password']) ? htmlspecialchars($user_data['password']) : "No hay datos";
-            $reseller_notes = isset($user_data['reseller_notes']) ? htmlspecialchars($user_data['reseller_notes']) : "No hay datos";
-            $max_connections = isset($user_data['max_connections']) ? htmlspecialchars($user_data['max_connections']) : "No hay datos";
-        } else {
-            // Si la solicitud no fue exitosa, muestra un mensaje de error
-            echo '<div class="text-center mt-4">Error: Error no existe el id.</div>';
-        }
-    } else {
-        // Si hubo un error en la solicitud
-        echo '<div class="text-center mt-4">Error de cURL: No se pudo obtener una respuesta de la API.</div>';
-    }
-}
-
-// Verifica si se ha enviado un formulario POST para eliminar
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_id'])) {
-    // Ejecuta la función para eliminar la línea
-    $delete_id = $_POST['delete_id'];
-    $response = deleteLine($api_key, $delete_id);
-    if ($response !== false) {
-        echo ($response === 'STATUS_SUCCESS') ? "<div class='text-center mt-4'>Se eliminó correctamente.</div>" : "<div class='text-center mt-4'>No se eliminó la línea.</div>";
-    } else {
-        echo "<div class='text-center mt-4'>Error de cURL: No se pudo obtener una respuesta de la API al intentar eliminar la línea.</div>";
-    }
-}
-
-// Función genérica para realizar una solicitud a la API
+// Función para realizar una solicitud a la API
 function makeRequest($url) {
     $curl = curl_init();
     curl_setopt($curl, CURLOPT_URL, $url);
@@ -68,5 +10,88 @@ function makeRequest($url) {
     $response = curl_exec($curl);
     curl_close($curl);
     return $response;
+}
+
+// Función para eliminar una línea a través de la API
+function deleteLine($api_key, $id) {
+    $url = 'http://172.16.18.20/APIsomos/?api_key=' . $api_key . '&action=delete_line&id=' . $id;
+    $response = makeRequest($url);
+    $data = json_decode($response, true); // Decodificar la respuesta JSON
+
+    if ($data !== null && isset($data['status']) && $data['status'] === 'STATUS_SUCCESS') {
+        return true; // La eliminación fue exitosa
+    } else {
+        return false; // Hubo un error al eliminar
+    }
+}
+
+// Función para conectar a la base de datos
+function connectToDatabase() {
+    $host = "172.16.18.20";
+    $user = "front";
+    $password = "S0m0s2023*-";
+    $database = "xui";
+    
+    // Crear la conexión
+    $conn = new mysqli($host, $user, $password, $database);
+    
+    // Verificar la conexión
+    if ($conn->connect_error) {
+        die("Error de conexión: " . $conn->connect_error);
+    }
+    
+    return $conn;
+}
+
+// Función para obtener los datos del usuario por nombre de usuario desde la base de datos
+function getUserDataFromDatabase($conn, $username) {
+    $username = $conn->real_escape_string($username);
+    $sql = "SELECT * FROM xui.lines WHERE username LIKE '%$username%' OR password LIKE '%$username%' ";
+    $result = $conn->query($sql);
+    
+    if ($result->num_rows > 0) {
+        return $result->fetch_all(MYSQLI_ASSOC);
+    } else {
+        return array(); // Devuelve un array vacío si no se encuentran resultados
+    }
+}
+
+
+// Verifica si se ha enviado un formulario POST
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (isset($_POST['username'])) {
+        // Captura el valor del nombre de usuario
+        $username = strtolower($_POST['username']);
+
+        // Conexión a la base de datos
+        $pdo = connectToDatabase();
+
+        // Obtener los datos del usuario de la base de datos
+        $user_data = getUserDataFromDatabase($pdo, $username);
+
+        // Verificar si se encontraron los datos del usuario
+        if ($user_data !== false) {
+            // Imprime los datos del usuario
+            //echo '<div class="text-center mt-4">';
+            //echo 'ID: ' . htmlspecialchars($user_data['id']) . '<br>';
+            //echo 'Username: ' . htmlspecialchars($user_data['username']) . '<br>';
+            // Imprime los demás campos necesarios
+            //echo '</div>';
+        } else {
+            // Si el usuario no existe en la base de datos
+            echo '<div class="text-center mt-4">Error: El usuario no fue encontrado.</div>';
+        }
+    }
+
+    if (isset($_POST['delete_id'])) {
+        // Ejecuta la función para eliminar la línea
+        $delete_id = $_POST['delete_id'];
+        $response = deleteLine($api_key, $delete_id);
+        if ($response===true) {
+            echo "<div class='text-center mt-4'>Se eliminó correctamente.</div>";
+        } else {
+            echo "<div class='text-center mt-4'>Error al eliminar el usuario.</div>";
+        }
+    }
 }
 ?>
